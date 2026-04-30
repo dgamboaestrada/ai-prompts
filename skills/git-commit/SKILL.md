@@ -23,7 +23,10 @@ git diff --cached --name-only
 git diff --cached
 ```
 
-### 3. Create the commit with a descriptive message
+### 3. Mandatory Confirmation
+The agent **MUST** present the proposed commit message to the user and wait for explicit confirmation (e.g., "Yes", "Proceed", or "Approved") before executing the commit command.
+
+### 4. Create the commit with a descriptive message
 ```bash
 git commit -m "Your commit message here"
 ```
@@ -37,12 +40,12 @@ git commit -m "Short summary line
 - Detailed change 3"
 ```
 
-### 4. Verify the commit was created
+### 5. Verify the commit was created
 ```bash
 git log -1
 ```
 
-### 5. Push to remote repository (only if it was required)
+### 6. Push to remote repository (only if it was required)
 ```bash
 git push origin <branch-name>
 ```
@@ -64,17 +67,20 @@ git status
 # 2. Review changes
 git diff --cached
 
-# 3. Commit with descriptive message
+# 3. Mandatory Confirmation
+The agent **MUST** present the proposed commit message to the user and wait for explicit confirmation (e.g., "Yes", "Proceed", or "Approved") before executing the commit command.
+
+# 4. Commit with descriptive message
 git commit -m "Fix Docker build and add Docker documentation
 
 - Fix Dockerfile to copy binaries to installed package location
 - Add comprehensive Docker installation and usage documentation to README
 - Include notes about CIA tool for AWS authentication"
 
-# 4. Verify the commit
+# 5. Verify the commit
 git log -1
 
-# 5. Push to remote (optional - ask before pushing)
+# 6. Push to remote (optional - ask before pushing)
 # Ask: "Do you want to push this commit to the remote repository?"
 # If yes:
 git push origin <branch-name>
