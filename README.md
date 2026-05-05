@@ -12,6 +12,12 @@ mkdir -p ~/.claude/skills/
 ln -s $PWD/skills/* ~/.claude/skills/.
 ```
 
+Global Antigravity agent:
+```bash
+mkdir -p ~/.claude/skills/
+ln -s $PWD/skills/* ~/.gemini/antigravity/skills/.
+```
+
 Resources:
 - https://cursor.com/docs/context/skills
 - https://antigravity.google/docs/skills
