@@ -14,7 +14,7 @@ ln -s $PWD/skills/* ~/.claude/skills/.
 
 Global Antigravity agent:
 ```bash
-mkdir -p ~/.claude/skills/
+mkdir -p ~/.gemini/antigravity/skills
 ln -s $PWD/skills/* ~/.gemini/antigravity/skills/.
 ```
 
