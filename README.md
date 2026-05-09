@@ -25,11 +25,12 @@ ln -s $PWD/gemini/* ~/.gemini/.
 
 
 ## Resources:
-- https://cursor.com/docs/context/skills
-- https://antigravity.google/docs/skills
 - https://antigravity.google/docs/rules-workflows
-- https://opencode.ai/docs/skills/
+- https://antigravity.google/docs/skills
 - https://code.claude.com/docs/en/skills
+- https://cursor.com/docs/context/skills
+- https://geminicli.com/docs/
+- https://opencode.ai/docs/skills/
 
 ## Conventions
 - [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
