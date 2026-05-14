@@ -4,7 +4,7 @@ description: Parse and publish Terraform plan output as a formatted GitHub PR co
 license: MIT
 metadata:
   author: Daniel Gamboa Estrada
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # Role and Context
@@ -109,7 +109,7 @@ Summary: `<plan-summary>`
 <p>
 
 ```hcl
-<resource-changes-only, no warnings>
+<complete-raw-output-no-warnings>
 ```
 
 </p>
@@ -119,7 +119,7 @@ Summary: `<plan-summary>`
 ### Formatting rules
 
 - **Changes bullets**: use `-` (no emojis) with resource type and name, 1-2 lines per resource
-- **Plan output**: include only resource change blocks and the summary line — strip warnings, deprecations, and variable declarations
+- **Plan output**: include the complete raw output terraform plan  — strip warnings by default; include deprecations and variable declarations only if explicitly requested
 - **Warnings (optional)**: only when explicitly requested, add a third collapsible section:
 
 ```markdown
@@ -139,31 +139,24 @@ Summary: `<plan-summary>`
 ```bash
 # Step 2 — detect PR
 gh pr list --state open --head $(git branch --show-current) --json number,title
-# → [{"number":42,"title":"feat: rotate TLS certificate for myservice"}]
+# → [{"number":42,"title":"feat: rotate TLS certificate for mywebapp"}]
 
 # Step 4 — write comment to temp file
 cat > /tmp/pr_comment.txt << 'EOF'
-Terraform plan for module.myservice
+Terraform plan for module.mywebapp
 ---
-Target plan: `terraform plan -var-file=env.tfvars -target='module.myservice.module.myservice_elb.aws_elb.public_elb[0]' -target='module.myservice.module.myservice_elb.aws_elb.elb[0]'`
-Summary: `Plan: 0 to add, 4 to change, 0 to destroy`
+Target plan: `terraform plan -var-file=int.tfvars -target='module.mywebapp.aws_elb.public_elb'`
+Summary: `Plan: 0 to add, 2 to change, 0 to destroy`
 
 <details><summary>Changes</summary>
 
-- aws_elb (myservice-public-elb)
-  Rotating SSL certificate: `old-cert-id` → `new-cert-id`
-  External-facing ELB listener HTTPS update
+- aws_elb (mywebapp-public-elb)
+  Rotating SSL certificate: `aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa` → `bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb`
+  HTTPS listener update on port 443
 
-- aws_security_group (public_elb_security_group)
-  Ingress port 443: Adding new IPs, removing outdated ones
-
-- aws_elb (myservice-elb)
-  Rotating SSL certificate: `old-cert-id` → `new-cert-id`
-  Tags: Migration metadata update
-
-- aws_security_group (elb_security_group)
-  Egress/Ingress: Consolidating CIDR blocks
-  Tags: Migration metadata update
+- aws_security_group (public_elb_sg)
+  Ingress port 443: Adding 3 new CDN provider IPs
+  Total: 8 CDN endpoints, 5 unchanged + 3 new additions
 
 </details>
 
@@ -171,13 +164,64 @@ Summary: `Plan: 0 to add, 4 to change, 0 to destroy`
 <p>
 
 ```hcl
-# module.myservice.module.myservice_elb.aws_elb.public_elb[0] will be updated in-place
+# module.mywebapp.aws_elb.public_elb will be updated in-place
 ~ resource "aws_elb" "public_elb" {
-    + listener { ssl_certificate_id = "arn:aws:acm:us-east-1:123456789012:certificate/new-cert-id" }
-    - listener { ssl_certificate_id = "arn:aws:acm:us-east-1:123456789012:certificate/old-cert-id" }
-  }
+    id   = "int-mywebapp-public-elb"
+    name = "int-mywebapp-public-elb"
 
-Plan: 0 to add, 4 to change, 0 to destroy.
+    + listener {
+        + instance_port      = 80
+        + instance_protocol  = "HTTP"
+        + lb_port            = 443
+        + lb_protocol        = "HTTPS"
+        + ssl_certificate_id = "arn:aws:acm:us-east-1:123456789012:certificate/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+      }
+    - listener {
+        - instance_port      = 80 -> null
+        - instance_protocol  = "http" -> null
+        - lb_port            = 443 -> null
+        - lb_protocol        = "https" -> null
+        - ssl_certificate_id = "arn:aws:acm:us-east-1:123456789012:certificate/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" -> null
+      }
+}
+
+# module.mywebapp.aws_security_group.public_elb_sg will be updated in-place
+~ resource "aws_security_group" "public_elb_sg" {
+    id   = "sg-0ccccccccccccccc"
+    name = "int-mywebapp-public-elbsg"
+
+    ~ ingress = [
+        + {
+            + cidr_blocks = [
+                + "192.0.2.10/32",
+                + "192.0.2.20/32",
+                + "198.51.100.10/32",
+                + "198.51.100.20/32",
+                + "203.0.113.10/32",
+                + "192.0.2.100/32",       # NEW
+                + "198.51.100.100/32",    # NEW
+                + "203.0.113.100/32",     # NEW
+              ]
+            + from_port = 443
+            + protocol  = "tcp"
+            + to_port   = 443
+          }
+        - {
+            - cidr_blocks = [
+                - "192.0.2.10/32",
+                - "192.0.2.20/32",
+                - "198.51.100.10/32",
+                - "198.51.100.20/32",
+                - "203.0.113.10/32",
+              ]
+            - from_port = 443
+            - protocol  = "tcp"
+            - to_port   = 443
+          }
+      ]
+}
+
+Plan: 0 to add, 2 to change, 0 to destroy.
 ```
 
 </p>
