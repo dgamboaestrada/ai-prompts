@@ -42,9 +42,14 @@ Extract from the plan file:
 
 ### Step 4 — Write comment to temp file
 
-Build the formatted comment and write it to a temp file for preview and reuse:
+Build the formatted comment and write it to a temp file for preview and reuse. **Extract the COMPLETE terraform plan output from the plan file (lines 1 through the "Plan: X to add..." summary line) and include it verbatim in the Plan output section. DO NOT summarize, truncate, or edit any resource blocks:**
 
 ```bash
+# Extract the complete plan (from line 1 to and including the summary line)
+PLAN_LINES=$(grep -n "^Plan:" <plan-file-path> | head -1 | cut -d: -f1)
+sed -n "1,${PLAN_LINES}p" <plan-file-path> > /tmp/plan_output.txt
+
+# Write the formatted comment header
 cat > /tmp/pr_comment.txt << 'EOF'
 Terraform plan for <module-service>
 ---
@@ -62,7 +67,13 @@ Summary: `<plan-summary>`
 <p>
 
 ```hcl
-<resource-changes-only>
+EOF
+
+# Append the COMPLETE plan output (unmodified, verbatim)
+cat /tmp/plan_output.txt >> /tmp/pr_comment.txt
+
+# Close the markdown block
+cat >> /tmp/pr_comment.txt << 'EOF'
 ```
 
 </p>
@@ -109,7 +120,7 @@ Summary: `<plan-summary>`
 <p>
 
 ```hcl
-<complete-raw-output-no-warnings>
+<complete-terraform-plan-from-line-1-to-plan-summary>
 ```
 
 </p>
@@ -119,7 +130,7 @@ Summary: `<plan-summary>`
 ### Formatting rules
 
 - **Changes bullets**: use `-` (no emojis) with resource type and name, 1-2 lines per resource
-- **Plan output**: include the complete raw output terraform plan  — strip warnings by default; include deprecations and variable declarations only if explicitly requested
+- **Plan output section**: **ALWAYS include the COMPLETE raw terraform plan output** from the plan file (from line 1 through the "Plan: X to add, Y to change, Z to destroy" summary line). **DO NOT summarize, truncate, or edit any resource blocks.** Include all resources, attributes, and changes exactly as they appear in the file. This ensures full transparency and traceability for reviewers. Strip warnings, deprecation notices, and variable declaration warnings (lines after the "Plan: X to add..." summary line) by default; include them only if the user explicitly requests them (e.g. "con warnings", "include warnings", "include deprecations").
 - **Warnings (optional)**: only when explicitly requested, add a third collapsible section:
 
 ```markdown
@@ -141,7 +152,11 @@ Summary: `<plan-summary>`
 gh pr list --state open --head $(git branch --show-current) --json number,title
 # → [{"number":42,"title":"feat: rotate TLS certificate for mywebapp"}]
 
-# Step 4 — write comment to temp file
+# Step 3 — write comment to temp file with COMPLETE plan output
+PLAN_FILE="path/to/tfplan.txt"
+PLAN_LINES=$(grep -n "^Plan:" "$PLAN_FILE" | head -1 | cut -d: -f1)
+sed -n "1,${PLAN_LINES}p" "$PLAN_FILE" > /tmp/plan_output.txt
+
 cat > /tmp/pr_comment.txt << 'EOF'
 Terraform plan for module.mywebapp
 ---
@@ -164,73 +179,30 @@ Summary: `Plan: 0 to add, 2 to change, 0 to destroy`
 <p>
 
 ```hcl
-# module.mywebapp.aws_elb.public_elb will be updated in-place
-~ resource "aws_elb" "public_elb" {
-    id   = "int-mywebapp-public-elb"
-    name = "int-mywebapp-public-elb"
+EOF
 
-    + listener {
-        + instance_port      = 80
-        + instance_protocol  = "HTTP"
-        + lb_port            = 443
-        + lb_protocol        = "HTTPS"
-        + ssl_certificate_id = "arn:aws:acm:us-east-1:123456789012:certificate/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
-      }
-    - listener {
-        - instance_port      = 80 -> null
-        - instance_protocol  = "http" -> null
-        - lb_port            = 443 -> null
-        - lb_protocol        = "https" -> null
-        - ssl_certificate_id = "arn:aws:acm:us-east-1:123456789012:certificate/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" -> null
-      }
-}
+# Append the complete plan output (verbatim, unmodified)
+cat /tmp/plan_output.txt >> /tmp/pr_comment.txt
 
-# module.mywebapp.aws_security_group.public_elb_sg will be updated in-place
-~ resource "aws_security_group" "public_elb_sg" {
-    id   = "sg-0ccccccccccccccc"
-    name = "int-mywebapp-public-elbsg"
-
-    ~ ingress = [
-        + {
-            + cidr_blocks = [
-                + "192.0.2.10/32",
-                + "192.0.2.20/32",
-                + "198.51.100.10/32",
-                + "198.51.100.20/32",
-                + "203.0.113.10/32",
-                + "192.0.2.100/32",       # NEW
-                + "198.51.100.100/32",    # NEW
-                + "203.0.113.100/32",     # NEW
-              ]
-            + from_port = 443
-            + protocol  = "tcp"
-            + to_port   = 443
-          }
-        - {
-            - cidr_blocks = [
-                - "192.0.2.10/32",
-                - "192.0.2.20/32",
-                - "198.51.100.10/32",
-                - "198.51.100.20/32",
-                - "203.0.113.10/32",
-              ]
-            - from_port = 443
-            - protocol  = "tcp"
-            - to_port   = 443
-          }
-      ]
-}
-
-Plan: 0 to add, 2 to change, 0 to destroy.
+cat >> /tmp/pr_comment.txt << 'EOF'
 ```
 
 </p>
 </details>
 EOF
 
-# Step 5 — preview
+# Step 4 — preview
 cat /tmp/pr_comment.txt
 
-# Step 6 — publish (after user confirmation)
+# Step 5 — publish (after user confirmation)
 gh pr comment 42 --body "$(cat /tmp/pr_comment.txt)"
 ```
+
+---
+
+## Key principles
+
+1. **Full transparency**: Always include the COMPLETE plan output, never summarize or truncate
+2. **Verbatim extraction**: Copy the plan section from the file exactly as-is; do not edit individual resources
+3. **Warnings handling**: Strip technical warnings by default for readability; include only when explicitly requested
+4. **Traceability**: The complete plan ensures reviewers can audit every change without external reference
