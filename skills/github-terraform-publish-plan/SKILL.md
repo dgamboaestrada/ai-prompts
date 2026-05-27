@@ -4,7 +4,7 @@ description: Parse and publish Terraform plan output as a formatted GitHub PR co
 license: MIT
 metadata:
   author: Daniel Gamboa Estrada
-  version: "1.1.1"
+  version: "1.2.0"
 ---
 
 # Role and Context
@@ -34,22 +34,23 @@ If detection fails or returns no results, ask the user for the PR number explici
 ### Step 3 — Parse the plan
 
 Extract from the plan file:
-- **Target command**: last `[INFO]` line at the bottom, e.g. `[INFO] terraform plan -var-file=env.tfvars -target='...'`
+- **Target command**: last `[INFO]` line at the bottom, e.g. `[INFO] terraform plan -var-file=env.tfvars -target='...'`. Note: `[INFO]` lines are produced by Terragrunt or CI wrappers — plain `terraform plan` output won't have them. If no `[INFO]` line is found, look for a `terraform plan ...` invocation line or leave the field blank.
 - **Module-service**: first-level module from the target (e.g. `module.myservice`, not `module.myservice.module.sub`)
 - **Summary line**: pattern `Plan: X to add, Y to change, Z to destroy`
 - **Resource changes**: all `# module... will be...` blocks with their diffs
-- **Warnings**: strip by default; include only if the user explicitly requests them (e.g. "con warnings", "include warnings")
+- **No-changes case**: if the plan contains `No changes.` and no `Plan:` line exists, set the summary to `No changes. Infrastructure matches the configuration.` and skip the Plan output section entirely.
+- **Warnings**: strip by default; include only if the user explicitly requests them (e.g. "include warnings")
 
 ### Step 4 — Write comment to temp file
 
-Build the formatted comment and write it to a temp file for preview and reuse. **Extract the COMPLETE terraform plan output from the plan file (lines 1 through the "Plan: X to add..." summary line) and include it verbatim in the Plan output section. DO NOT summarize, truncate, or edit any resource blocks:**
+Build the Changes bullet list from the resources parsed in Step 3, then write the full comment to a temp file. Extract the COMPLETE terraform plan output verbatim (lines 1 through the "Plan: X to add..." summary line) for the Plan output section — do not summarize, truncate, or edit any resource block.
 
 ```bash
 # Extract the complete plan (from line 1 to and including the summary line)
 PLAN_LINES=$(grep -n "^Plan:" <plan-file-path> | head -1 | cut -d: -f1)
 sed -n "1,${PLAN_LINES}p" <plan-file-path> > /tmp/plan_output.txt
 
-# Write the formatted comment header
+# Write the formatted comment — substitute the real Changes bullets and metadata before running
 cat > /tmp/pr_comment.txt << 'EOF'
 Terraform plan for <module-service>
 ---
@@ -93,11 +94,11 @@ Ask the user for explicit confirmation (e.g. "yes", "si", "proceed") before cont
 
 ### Step 6 — Publish to GitHub PR
 
-```bash
-gh pr comment <pr-number> --body "$(cat /tmp/pr_comment.txt)"
-```
+Use `--body-file` to avoid shell expansion mangling backticks and `$` signs in the plan output:
 
-Use `cat /tmp/pr_comment.txt` to avoid shell escaping issues with backticks and special characters in the plan output.
+```bash
+gh pr comment <pr-number> --body-file /tmp/pr_comment.txt
+```
 
 ---
 
@@ -130,7 +131,8 @@ Summary: `<plan-summary>`
 ### Formatting rules
 
 - **Changes bullets**: use `-` (no emojis) with resource type and name, 1-2 lines per resource
-- **Plan output section**: **ALWAYS include the COMPLETE raw terraform plan output** from the plan file (from line 1 through the "Plan: X to add, Y to change, Z to destroy" summary line). **DO NOT summarize, truncate, or edit any resource blocks.** Include all resources, attributes, and changes exactly as they appear in the file. This ensures full transparency and traceability for reviewers. Strip warnings, deprecation notices, and variable declaration warnings (lines after the "Plan: X to add..." summary line) by default; include them only if the user explicitly requests them (e.g. "con warnings", "include warnings", "include deprecations").
+- **Plan output section**: always include the complete raw terraform plan output (from line 1 through the `Plan: X to add, Y to change, Z to destroy` summary line). Do not summarize, truncate, or edit any resource block. Strip warnings, deprecation notices, and variable declaration warnings (lines after the summary line) by default; include them only if the user explicitly requests them.
+- **No-changes case**: omit the Plan output section entirely and use `No changes. Infrastructure matches the configuration.` as the summary.
 - **Warnings (optional)**: only when explicitly requested, add a third collapsible section:
 
 ```markdown
@@ -152,11 +154,12 @@ Summary: `<plan-summary>`
 gh pr list --state open --head $(git branch --show-current) --json number,title
 # → [{"number":42,"title":"feat: rotate TLS certificate for mywebapp"}]
 
-# Step 3 — write comment to temp file with COMPLETE plan output
+# Step 4 — extract the complete plan output up to the summary line
 PLAN_FILE="path/to/tfplan.txt"
 PLAN_LINES=$(grep -n "^Plan:" "$PLAN_FILE" | head -1 | cut -d: -f1)
 sed -n "1,${PLAN_LINES}p" "$PLAN_FILE" > /tmp/plan_output.txt
 
+# Step 4 — write the comment to a temp file (Changes section built from Step 3 parsed resources)
 cat > /tmp/pr_comment.txt << 'EOF'
 Terraform plan for module.mywebapp
 ---
@@ -191,18 +194,9 @@ cat >> /tmp/pr_comment.txt << 'EOF'
 </details>
 EOF
 
-# Step 4 — preview
+# Step 5 — preview
 cat /tmp/pr_comment.txt
 
-# Step 5 — publish (after user confirmation)
-gh pr comment 42 --body "$(cat /tmp/pr_comment.txt)"
+# Step 6 — publish (after user confirmation)
+gh pr comment 42 --body-file /tmp/pr_comment.txt
 ```
-
----
-
-## Key principles
-
-1. **Full transparency**: Always include the COMPLETE plan output, never summarize or truncate
-2. **Verbatim extraction**: Copy the plan section from the file exactly as-is; do not edit individual resources
-3. **Warnings handling**: Strip technical warnings by default for readability; include only when explicitly requested
-4. **Traceability**: The complete plan ensures reviewers can audit every change without external reference
