@@ -1,0 +1,101 @@
+{
+  "skill_name": "anonymize-devops-content",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I want to post this Terraform config on Stack Overflow to ask about the ALB listener rule logic, but I need to strip out anything internal first:\n\n```hcl\nresource \"aws_lb_listener_rule\" \"payments_redirect\" {\n  listener_arn = \"arn:aws:elasticloadbalancing:us-east-1:847392015683:listener/app/acme-prod-alb/9f3c2a1b4d5e6f7a/0123456789abcdef\"\n\n  action {\n    type             = \"redirect\"\n    redirect {\n      host        = \"payments.acmecorp.io\"\n      path        = \"/v2#{path}\"\n      status_code = \"HTTP_301\"\n    }\n  }\n\n  condition {\n    host_header {\n      values = [\"pay.acmecorp.io\", \"checkout.acmecorp.io\"]\n    }\n  }\n\n  tags = {\n    Environment = \"prod\"\n    Owner       = \"platform-team@acmecorp.io\"\n    CostCenter  = \"CC-8842\"\n    Ticket      = \"PLAT-3847\"\n  }\n}\n```",
+      "expected_output": "The Terraform block returned with all AWS account IDs, ARN identifiers, company domains (acmecorp.io), employee email, cost center, and ticket ID replaced with generic placeholders. ARN structure preserved. A brief summary of what was changed.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "company-domain-removed",
+          "description": "The string 'acmecorp' does not appear anywhere in result.hcl"
+        },
+        {
+          "name": "real-account-id-removed",
+          "description": "The real AWS account ID '847392015683' does not appear in result.hcl"
+        },
+        {
+          "name": "placeholder-account-id-used",
+          "description": "The placeholder '111111111111' is present in result.hcl"
+        },
+        {
+          "name": "ticket-reference-removed",
+          "description": "The ticket ID 'PLAT-3847' does not appear in result.hcl"
+        },
+        {
+          "name": "owner-email-removed",
+          "description": "The owner email 'platform-team@acmecorp.io' does not appear in result.hcl"
+        },
+        {
+          "name": "arn-structure-preserved",
+          "description": "The string 'arn:aws:elasticloadbalancing' is present in result.hcl (structure intact)"
+        },
+        {
+          "name": "example-domain-used",
+          "description": "The string 'example.com' appears in result.hcl for domain replacements"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "hey can you clean this deploy script before i share it with an external vendor? need to remove anything company-specific\n\n```bash\n#!/bin/bash\n# deploy.sh - Production deployment script\n# Owner: sarah.chen@globex-systems.com\n# Last updated for incident INC-20231114 (prod outage)\n\nset -euo pipefail\n\nREGISTRY=\"registry.globex-systems.internal:5000\"\nAPP_NAME=\"globex-billing-service\"\nDEPLOY_ENV=\"prod\"\nKUBE_CONTEXT=\"globex-prod-us-east-1\"\n\nexport AWS_ACCOUNT_ID=\"592847103920\"\nexport AWS_DEFAULT_REGION=\"us-east-1\"\n\nDATABASE_HOST=\"billing-primary.db.globex.internal\"\nDATABASE_USER=\"billing_svc_prod\"\nDATABASE_PASSWORD=\"Gl0b3x$ecure2023!\"\n\necho \"Deploying ${APP_NAME} to ${DEPLOY_ENV}...\"\nkubectl --context=${KUBE_CONTEXT} set image deployment/${APP_NAME} \\\n  ${APP_NAME}=${REGISTRY}/${APP_NAME}:${IMAGE_TAG}\n\n# Wait for rollout (added after INC-20231114 to catch failed rollouts earlier)\nkubectl --context=${KUBE_CONTEXT} rollout status deployment/${APP_NAME} --timeout=5m\n```",
+      "expected_output": "The bash script returned with company name, employee email, internal registry URL, AWS account ID, database hostname, hardcoded credentials, and ticket/incident references removed or replaced generically. Script structure and logic preserved. Brief summary of changes.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "company-name-removed",
+          "description": "The string 'globex' does not appear anywhere in result.sh"
+        },
+        {
+          "name": "employee-email-removed",
+          "description": "The string 'sarah.chen' does not appear in result.sh"
+        },
+        {
+          "name": "real-account-id-removed",
+          "description": "The real AWS account ID '592847103920' does not appear in result.sh"
+        },
+        {
+          "name": "hardcoded-password-removed",
+          "description": "The string 'Gl0b3x' does not appear in result.sh"
+        },
+        {
+          "name": "incident-reference-removed",
+          "description": "The string 'INC-20231114' does not appear in result.sh"
+        },
+        {
+          "name": "script-structure-preserved",
+          "description": "result.sh contains 'set -euo pipefail' (core safety flags preserved)"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I'm writing a blog post about our CI/CD setup and want to include this GitHub Actions workflow as an example. Can you anonymize it?\n\n```yaml\nname: Deploy to Staging\n\non:\n  push:\n    branches: [main]\n\nenv:\n  AWS_REGION: us-west-2\n  ECR_REGISTRY: 304857192038.dkr.ecr.us-west-2.amazonaws.com\n  ECR_REPOSITORY: thunderbolt-api\n  ECS_CLUSTER: thunderbolt-staging-cluster\n  ECS_SERVICE: thunderbolt-api-staging\n  CONTAINER_NAME: thunderbolt-api\n  SLACK_WEBHOOK: https://hooks.slack.com/services/T02ABCDEF/B03GHIJKL/xyzXYZ1234567890abcdefghij\n\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v3\n\n      - name: Configure AWS credentials\n        uses: aws-actions/configure-aws-credentials@v2\n        with:\n          aws-access-key-id: ${{ secrets.THUNDERBOLT_AWS_KEY_ID }}\n          aws-secret-access-key: ${{ secrets.THUNDERBOLT_AWS_SECRET }}\n          aws-region: ${{ env.AWS_REGION }}\n\n      - name: Login to ECR\n        id: login-ecr\n        uses: aws-actions/amazon-ecr-login@v1\n\n      - name: Build and push image\n        env:\n          IMAGE_TAG: ${{ github.sha }}\n        run: |\n          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .\n          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG\n\n      - name: Notify Slack\n        run: |\n          curl -X POST -H 'Content-type: application/json' \\\n            --data '{\"text\":\"Deployed thunderbolt-api to staging\"}' \\\n            $SLACK_WEBHOOK\n```",
+      "expected_output": "The GitHub Actions YAML returned with AWS account ID in ECR registry URL, project/service names (thunderbolt), Slack webhook URL, and secret names that reveal project names all replaced generically. Workflow structure and logic fully preserved. Brief summary of changes.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "project-name-removed",
+          "description": "The string 'thunderbolt' does not appear anywhere in result.yml"
+        },
+        {
+          "name": "real-account-id-removed",
+          "description": "The real AWS account ID '304857192038' does not appear in result.yml"
+        },
+        {
+          "name": "slack-webhook-replaced",
+          "description": "The real Slack webhook path 'T02ABCDEF/B03GHIJKL' does not appear in result.yml"
+        },
+        {
+          "name": "secret-names-generalized",
+          "description": "The string 'THUNDERBOLT_AWS_KEY_ID' does not appear in result.yml"
+        },
+        {
+          "name": "yaml-structure-preserved",
+          "description": "result.yml contains both 'jobs:' and 'steps:' (workflow structure intact)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+[
+  {
+    "query": "i need to post this terraform module on github so a contractor can help debug it but there's a bunch of internal stuff in there — account ids, our domain names, some iam role arns. can you clean it up first?\n\nresource \"aws_iam_role\" \"app_role\" {\n  name = \"acme-prod-app-role\"\n  assume_role_policy = jsonencode({\n    Statement = [{\n      Principal = { Service = \"lambda.amazonaws.com\" }\n      Action    = \"sts:AssumeRole\"\n    }]\n  })\n  tags = { Owner = \"john.doe@acme-internal.com\", CostCenter = \"ENG-442\" }\n}",
+    "should_trigger": true
+  },
+  {
+    "query": "we're open-sourcing our deployment scripts and i need to scrub them before pushing to the public repo. here's the main deploy.sh — it's got our internal docker registry url, the prod cluster name, and a hardcoded db password that someone left in from 2021",
+    "should_trigger": true
+  },
+  {
+    "query": "sharing this k8s deployment yaml with an outside auditor, need to remove anything that identifies our infrastructure:\n\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: payments-api\n  namespace: acme-prod\nspec:\n  template:\n    spec:\n      containers:\n      - name: payments-api\n        image: registry.acme.internal/payments-api:v2.3.1\n        env:\n        - name: DB_HOST\n          value: payments-primary.rds.acme.internal",
+    "should_trigger": true
+  },
+  {
+    "query": "can you anonymize this? it's a github actions workflow we use for releases, going to include it in a blog post but it has our aws account id baked into the ecr url and our internal slack webhook",
+    "should_trigger": true
+  },
+  {
+    "query": "hey quick q — is this dockerfile safe to share publicly? it references our internal base image registry and there might be some build args with credentials",
+    "should_trigger": true
+  },
+  {
+    "query": "got an ansible playbook i need to post on stack overflow to ask about the task ordering logic. obviously need to strip out our inventory hostnames and vault passwords before i paste it. can you do that",
+    "should_trigger": true
+  },
+  {
+    "query": "remove all the internal stuff from this runbook so i can add it to our public docs. it mentions incident INC-2024-0887, our pagerduty routing key, and a few internal dashboard urls",
+    "should_trigger": true
+  },
+  {
+    "query": "we're contributing this monitoring script to an open source project, but first need to strip out: our aws account id (shows up in a few cloudwatch arns), our company's internal domain (metrics.corp.acme.io), and a slack webhook token",
+    "should_trigger": true
+  },
+  {
+    "query": "sanitize this ci/cd config for me — i want to share it with the devops community on reddit but it has our internal artifact repo url and some project names that identify the team",
+    "should_trigger": true
+  },
+  {
+    "query": "i'm writing up a postmortem template for our team wiki and want to include a real example from last month's outage, but obviously redact the internal bits — server names, account numbers, team names. here's the raw notes",
+    "should_trigger": true
+  },
+  {
+    "query": "can you review this terraform config for security issues? i want to make sure we're following least privilege and that none of the iam policies are too permissive",
+    "should_trigger": false
+  },
+  {
+    "query": "how should i store secrets in a kubernetes cluster? we're currently using env vars directly in the deployment yaml and i know that's not ideal",
+    "should_trigger": false
+  },
+  {
+    "query": "add secret scanning to this github actions workflow so it fails if anyone accidentally commits credentials",
+    "should_trigger": false
+  },
+  {
+    "query": "we need to rotate our aws access keys — can you help me write a script to automate the rotation process and update the secrets in parameter store",
+    "should_trigger": false
+  },
+  {
+    "query": "rewrite this bash deploy script in python. same logic, just want to move away from bash for better error handling",
+    "should_trigger": false
+  },
+  {
+    "query": "update this github actions workflow to use node 20 instead of node 16, the old version is getting deprecated",
+    "should_trigger": false
+  },
+  {
+    "query": "encrypt this config file with ansible vault so we can check it into git safely",
+    "should_trigger": false
+  },
+  {
+    "query": "is there a way to audit who has access to our aws account? we think some old iam roles from a contractor last year might still be active",
+    "should_trigger": false
+  },
+  {
+    "query": "this terraform plan output is showing some unexpected changes to our security groups — can you help me understand what's going on and whether it's safe to apply",
+    "should_trigger": false
+  },
+  {
+    "query": "generate a github actions workflow that builds and pushes a docker image to ecr on every push to main. we're using node 18 and the ecr repo already exists",
+    "should_trigger": false
+  }
+]
