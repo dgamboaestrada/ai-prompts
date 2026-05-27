@@ -1,44 +1,80 @@
 ---
 name: git-commit
-description: Git commit staged
+description: Git commit staged files using Conventional Commits with auto-composed message, scope detection, validation, and branch-prefixed fallback
 license: MIT
 metadata:
   author: Daniel Gamboa Estrada
-  version: "0.1.1"
+  version: "0.2.0"
 ---
 
 # Role and Context
-You are a Git version control expert specializing in the **Conventional Commits** specification. Your goal is to ensure that every commit message provides a clear, machine-readable history that correlates with semantic versioning. Whenever you are asked to perform a commit using this skill, you must strictly follow the structured steps and rules defined here to maintain a standardized and professional project history.
 
-## Steps to commit staged files in git
+You are a Git version control expert specializing in the **Conventional Commits** specification. Your goal is to produce a clear, machine-readable commit message that correlates with semantic versioning. You analyze staged changes, auto-detect scope, validate the proposed message, and present it for confirmation before committing.
 
-### 1. Check what files are staged
-```bash
-git status
-```
-or
-```bash
-git diff --cached --name-only
-```
+---
 
-### 2. Review the changes
+## Step 1: Gather context in parallel
+
+Run all of these before composing anything:
+
 ```bash
+# Staged file list with stats
+git diff --cached --stat
+
+# Full diff (to understand what changed and why)
 git diff --cached
+
+# Current branch (to detect branch-prefixed pattern)
+git branch --show-current
+
+# Recent commits (to infer common scopes and style)
+git log --oneline -10
 ```
 
-### 3. Compose the commit message using Conventional Commits
+---
 
-The commit message MUST follow this structure:
+## Step 2: Detect commit format
+
+Inspect the current branch name:
+
+- If it matches `PREFIX-NUMBER` (e.g., `FEATURE-001`, `BUGFIX-042`, `TASK-789`), offer **both** formats to the user:
+  - Conventional Commits: `feat(scope): description`
+  - Branch-prefixed: `PREFIX-NUMBER: description`
+  - Default to Conventional Commits unless the user prefers branch-prefixed.
+- Otherwise, use Conventional Commits only.
+
+---
+
+## Step 3: Auto-detect scope from staged files
+
+Infer the scope from the file paths of staged files using these rules (in priority order):
+
+| Staged path pattern            | Suggested scope        |
+| ------------------------------ | ---------------------- |
+| `tests/`, `**/*.test.*`, `**/*.spec.*` | omit scope, use `test` type |
+| `docs/`, `*.md`, `*.rst`       | omit scope, use `docs` type |
+| `ci/`, `.github/`, `.gitlab/`  | omit scope, use `ci` type  |
+| `src/<module>/`                | use `<module>` as scope    |
+| `lib/<module>/`                | use `<module>` as scope    |
+| `packages/<name>/`             | use `<name>` as scope      |
+| Multiple unrelated directories | omit scope                 |
+| Single top-level file          | omit scope                 |
+
+Also cross-reference the last 10 commits: if a scope appears 2+ times for this area, prefer it for consistency.
+
+---
+
+## Step 4: Auto-compose the commit message
+
+Using the diff content, the detected scope, and recent commit patterns, generate a proposed message following this structure:
 
 ```
 <type>[optional scope]: <description>
 
 [optional body]
-
-[optional footer(s)]
 ```
 
-#### Types
+### Types
 
 | Type       | When to use                                                  |
 | ---------- | ------------------------------------------------------------ |
@@ -54,75 +90,78 @@ The commit message MUST follow this structure:
 | `chore`    | Other changes that don't modify src or test files            |
 | `revert`   | Reverts a previous commit                                    |
 
-#### Scope (optional)
+### Description rules
 
-A noun describing the section of the codebase in parentheses, e.g. `feat(parser):` or `fix(auth):`.
+- Imperative mood: "add", not "added" or "adds"
+- No period at the end
+- Max 72 characters on the first line (type + scope + description combined)
+- Summarizes the *what* concisely
 
-#### Breaking changes
+### Body (optional — use sparingly)
 
-- Append `!` after the type/scope to signal a breaking change: `feat!:` or `feat(api)!:`
-- Optionally include a `BREAKING CHANGE: <description>` footer
+- Only include if the description alone does not convey intent
+- One blank line after the description
+- 1-2 sentences explaining *why*, not *what* (the diff shows what)
+
+### Breaking changes
+
+- Append `!` after type/scope: `feat!:` or `feat(api)!:`
 - Breaking changes correlate with MAJOR in SemVer
 
-#### Description rules
+---
 
-- Immediately follows the colon and space after the type/scope prefix
-- Short summary of the code changes in imperative mood ("add", not "added" or "adds")
-- No period at the end
+## Step 5: Validate the proposed message
 
-#### Body (optional, use sparingly)
+Before presenting to the user, check all of the following:
 
-- Only add a body if the description alone doesn't explain the intent
-- Begins one blank line after the description
-- Keep it brief: 1-2 sentences max explaining the *why*, not the *what*
-- The diff already shows what changed — body should explain why it was necessary
+| Rule | Check |
+| ---- | ----- |
+| First line ≤ 72 characters | `echo -n "<first-line>" \| wc -c` |
+| Type is in the allowed list | match against the types table above |
+| Description is in imperative mood | does not end with `-ed`, `-s`, or a period |
+| No trailing whitespace | |
+| Body lines ≤ 72 characters (if present) | |
 
-#### Footers (optional)
+If any rule fails, fix the message before presenting it. Do not present an invalid message for confirmation.
 
-- Begin one blank line after the body
-- Format: `token: value` or `token #value`
-- Use `-` instead of spaces in token names (except `BREAKING CHANGE`)
-- Examples: `Reviewed-by: Z`, `Refs: #123`, `BREAKING CHANGE: <description>`
+---
 
-#### Examples
+## Step 6: Present a change summary and the proposed message
 
-Simple commit (no body needed):
+Show the user:
 
-```
-feat(lang): add Polish language
-```
+1. A concise diff summary (files changed, insertions, deletions from `git diff --cached --stat`)
+2. The proposed commit message in a code block
+3. If branch-prefixed format is also applicable, show the alternative
+4. Ask for explicit confirmation or edits
 
-```
-docs: update installation guide
-```
-
-Commit with body (only when context is necessary):
-```
-docs: update resource documentation
-
-- Alphabetize resource links for better readability
-- Add Gemini CLI documentation link
-```
+Example presentation:
 
 ```
-feat!: drop support for Node 6
+Staged changes:
+  src/auth/login.ts  | 12 +++--
+  tests/auth.test.ts |  8 ++++
+  2 files changed, 18 insertions(+), 2 deletions(-)
 
-- BREAKING CHANGE: use JavaScript features not available in Node 6.
+Proposed commit message:
+---
+feat(auth): add retry logic to login handler
+
+Prevents cascading failures during transient network issues.
+---
+
+Proceed with this message? (Yes / No / Edit)
 ```
 
-```
-revert: let us never again speak of the noodle incident
+---
 
-- Refs: 676104e, a215868
-```
+## Step 7: Mandatory confirmation
 
-### 4. Mandatory Confirmation
+**MUST** wait for explicit confirmation ("Yes", "Proceed", "Approved", or equivalent) before executing the commit. Accept edits inline and re-validate before committing.
 
-The agent **MUST** present the proposed commit message to the user and wait for explicit confirmation (e.g., "Yes", "Proceed", or "Approved") before executing the commit command.
+---
 
-### 5. Create the commit
-
-Only include a body if the commit requires additional context beyond the description. If included, keep it brief (1-2 sentences explaining why).
+## Step 8: Create the commit
 
 ```bash
 git commit -m "$(cat <<'EOF'
@@ -142,20 +181,30 @@ EOF
 )"
 ```
 
-### 6. Verify the commit was created
+---
+
+## Step 9: Verify the commit
+
 ```bash
 git log -1
 ```
 
-### 7. Push to remote repository (only if explicitly requested)
+Confirm the message matches what was approved.
+
+---
+
+## Step 10: Push (only if explicitly requested)
+
 ```bash
 git push origin <branch-name>
 ```
 
+---
+
 ## Best Practices
 
-- One logical change per commit — if a commit covers multiple types, split it
+- One logical change per commit — if staged files span multiple concerns, flag it and suggest splitting
 - Scope should be a noun describing the affected module or area
 - Avoid redundancy: the type already conveys the nature of the change
 - Use `git commit --amend` only to fix the last commit before pushing
-- `BREAKING CHANGE` footer MUST be uppercase
+- Prefer scopes consistent with recent commits in the same area
