@@ -1,6 +1,6 @@
 ---
 name: github-create-pullrequest
-description: Create a pull request OR generate a PR description using GitHub CLI. Use whenever the user asks to: create a PR, open a PR, submit changes for review, push a branch for review, generate a PR description, draft a PR body, or describe their changes. Trigger even without explicit "pull request" — phrases like "submit this", "open this for review", "push this up", or "write me a description for this branch" in a git context should invoke this skill.
+description: Use this skill when the user's goal is to CREATE a pull request or WRITE a PR description. Must trigger for: "create a PR", "open a PR", "publish a PR", "submit this for review", "open this for review", "push for review", "draft the PR body", "write a PR description", "give me a PR description to copy". Invoke on intent — the user doesn't need to say "pull request" explicitly. Skip only when reviewing an existing PR's diff, resolving merge conflicts, merging a PR, squashing commits, or managing git tags.
 license: MIT
 metadata:
   author: Daniel Gamboa Estrada
